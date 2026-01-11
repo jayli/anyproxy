@@ -1,4 +1,4 @@
-AnyProxy → @jayli/anyproxy
+AnyProxy → @bachi/anyproxy
 ----------------
 
 [![NPM version][npm-image]][npm-url]
