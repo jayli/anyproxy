@@ -1,5 +1,5 @@
 {
-  "name": "anyproxy",
+  "name": "@jayli/anyproxy",
   "version": "4.1.3",
   "description": "A fully configurable HTTP/HTTPS proxy in Node.js",
   "main": "proxy.js",
