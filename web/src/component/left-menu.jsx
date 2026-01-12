@@ -95,7 +95,7 @@ class LeftMenu extends React.Component {
             <span className={Style.filterIcon}>
               <InlineSVG src={require('svg-inline-loader!assets/filter.svg')} />
             </span>
-            <span>Filter</span>
+            <span>Filter(过滤)</span>
           </a>
 
           <a
@@ -107,11 +107,11 @@ class LeftMenu extends React.Component {
             <span className={Style.downloadIcon}>
               <InlineSVG src={require('svg-inline-loader!assets/download.svg')} />
             </span>
-            <span>RootCA</span>
+            <span>RootCA(证书)</span>
           </a>
         </div>
         <div className={Style.bottom} >
-          <a className={Style.bottomItem} href="http://anyproxy.io/" target="_blank">AnyProxy.io</a>
+          <a className={Style.bottomItem} href="http://anyproxy.io/" target="_blank">AnyProxy.io</a><br />
           <div className={Style.bottomBorder} >
             <span className={Style.bottomBorder1} />
             <span className={Style.bottomBorder2} />

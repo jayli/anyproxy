@@ -92,7 +92,7 @@ class DownloadRootCA extends React.Component {
         return (
             <div className={Style.wrapper}>
                 <div className={Style.title} >
-                    RootCA
+                  RootCA
                 </div>
 
                 <div className={Style.generateRootCaTip} >
