@@ -1,6 +1,6 @@
 {
   "name": "@bachi/anyproxy",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A fully configurable HTTP/HTTPS proxy in Node.js, Base version 4.1.3",
   "main": "proxy.js",
   "bin": {
