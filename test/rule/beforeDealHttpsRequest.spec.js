@@ -1,8 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const { basicProxyRequest, proxyServerWithRule, } = require('../util.js');
+const { startLocalTestServer } = require('../localTestServer');
 
 const RULE_PAYLOAD = 'this is something in rule';
+let localTestServer;
 
 const rule = {
   *beforeSendRequest(requestDetail) {
@@ -14,7 +16,7 @@ const rule = {
   },
 
   *beforeDealHttpsRequest(requestDetail) {
-    return requestDetail.host.indexOf('httpbin.org') >= 0;
+    return requestDetail.host.indexOf('localhost') >= 0;
   }
 };
 
@@ -24,16 +26,22 @@ describe('Rule beforeDealHttpsRequest', () => {
   let proxyHost;
 
   beforeAll(async () => {
+    localTestServer = await startLocalTestServer();
     proxyServer = await proxyServerWithRule(rule);
     proxyPort = proxyServer.proxyPort;
     proxyHost = `http://localhost:${proxyPort}`;
   });
 
-  afterAll(() => {
-    return proxyServer && proxyServer.close();
+  afterAll(async () => {
+    if (proxyServer) {
+      await proxyServer.close();
+    }
+    if (localTestServer) {
+      await localTestServer.close();
+    }
   });
   it('Should replace the https request body', async () => {
-    const url = 'https://httpbin.org/put';
+    const url = `${localTestServer.httpsBaseUrl}/put`;
     const payloadStream = fs.createReadStream(path.resolve(__dirname, '../fixtures/upload.txt'));
     const postHeaders = {
       anyproxy_header: 'header_value',

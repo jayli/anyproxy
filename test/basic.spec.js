@@ -8,13 +8,16 @@ const { basicProxyRequest, proxyServerWithRule, } = require('./util.js');
 const http = require('http');
 const WebSocket = require('ws');
 const tunnel = require('tunnel');
+const { startLocalTestServer } = require('./localTestServer');
 
 let proxyServer;
 let proxyPort;
 let proxyHost;
 let proxyWebInterfaceHost;
+let localTestServer;
 beforeAll(async () => {
   jest.DEFAULT_TIMEOUT_INTERVAL = 20 * 1000;
+  localTestServer = await startLocalTestServer();
   proxyServer = await proxyServerWithRule({}, {});
   proxyPort = proxyServer.proxyPort;
   proxyHost = `http://localhost:${proxyPort}`;
@@ -22,8 +25,13 @@ beforeAll(async () => {
   proxyWebInterfaceHost = `http://localhost:${proxyWebInterfacePort}`;
 });
 
-afterAll(() => {
-  return proxyServer && proxyServer.close();
+afterAll(async () => {
+  if (proxyServer) {
+    await proxyServer.close();
+  }
+  if (localTestServer) {
+    await localTestServer.close();
+  }
 });
 
 function doProxyWebSocket(url, headers = {}) {
@@ -65,7 +73,7 @@ function doProxyWebSocket(url, headers = {}) {
     };
 
     it('GET', async () => {
-      const url = `${protocol}://httpbin.org/get`;
+      const url = `${protocol === 'https' ? localTestServer.httpsBaseUrl : localTestServer.httpBaseUrl}/get`;
       const getParam = {
         param: 'param_value'
       };
@@ -73,7 +81,7 @@ function doProxyWebSocket(url, headers = {}) {
     });
 
     it('POST body and header', async () => {
-      const url = `${protocol}://httpbin.org/post`;
+      const url = `${protocol === 'https' ? localTestServer.httpsBaseUrl : localTestServer.httpBaseUrl}/post`;
       const payloadStream = fs.createReadStream(path.resolve(__dirname, './fixtures/upload.txt'));
 
       const postHeaders = {
@@ -85,13 +93,13 @@ function doProxyWebSocket(url, headers = {}) {
     });
 
     it('PUT', async () => {
-      const url = `${protocol}://httpbin.org/put`;
+      const url = `${protocol === 'https' ? localTestServer.httpsBaseUrl : localTestServer.httpBaseUrl}/put`;
       const payloadStream = fs.createReadStream(path.resolve(__dirname, './fixtures/upload.txt'));
       await basicProxyRequest(proxyHost, 'PUT', url, {}, undefined, payloadStream).then(assertProxyRes);
     });
 
     it('DELETE', async () => {
-      const url = `${protocol}://httpbin.org/delete`;
+      const url = `${protocol === 'https' ? localTestServer.httpsBaseUrl : localTestServer.httpBaseUrl}/delete`;
       const param = {
         foo: 'bar',
       };
@@ -99,7 +107,7 @@ function doProxyWebSocket(url, headers = {}) {
     });
 
     it('PATCH', async () => {
-      const url = `${protocol}://httpbin.org/patch`;
+      const url = `${protocol === 'https' ? localTestServer.httpsBaseUrl : localTestServer.httpBaseUrl}/patch`;
       await basicProxyRequest(proxyHost, 'PATCH', url).then(assertProxyRes);
     });
 
@@ -107,6 +115,22 @@ function doProxyWebSocket(url, headers = {}) {
       const expectEcho = (ws) => {
         return new Promise((resolve, reject) => {
           const wsMsg = Buffer.alloc(100 * 1024, 'a').toString(); // 100kb
+          let receivedExpectedMessage = false;
+          let settled = false;
+
+          const finishResolve = () => {
+            if (!settled) {
+              settled = true;
+              resolve();
+            }
+          };
+
+          const finishReject = (error) => {
+            if (!settled) {
+              settled = true;
+              reject(error);
+            }
+          };
 
           ws.on('open', () => {
             ws.send(wsMsg);
@@ -114,13 +138,25 @@ function doProxyWebSocket(url, headers = {}) {
 
           ws.on('message', (msg) => {
             expect(msg).toBe(wsMsg);
+            receivedExpectedMessage = true;
             ws.close();
-            resolve();
+          });
+
+          ws.on('close', () => {
+            if (receivedExpectedMessage) {
+              finishResolve();
+            } else {
+              finishReject(new Error('websocket closed before echo was received'));
+            }
+          });
+
+          ws.on('error', (error) => {
+            finishReject(error);
           });
         });
       };
 
-      const wsUrl = `${protocol === 'https' ? 'wss' : 'ws'}://echo.websocket.org`;
+      const wsUrl = protocol === 'https' ? localTestServer.wssBaseUrl : localTestServer.wsBaseUrl;
       const ws = doProxyWebSocket(wsUrl, {});
       await expectEcho(ws);
     });
@@ -131,7 +167,7 @@ describe('status code and headers', () => {
   [302, 404, 500].forEach(statusCode => {
     it(`GET ${statusCode}`, async () => {
       const status = statusCode;
-      const url = `http://httpbin.org/status/${status}`;
+      const url = `${localTestServer.httpBaseUrl}/status/${status}`;
       const result = await basicProxyRequest(proxyHost, 'GET', url, {}, {});
       const proxyRes = result.response;
       expect(proxyRes.statusCode).toBe(statusCode);
@@ -139,7 +175,7 @@ describe('status code and headers', () => {
 
     it(`PUT ${statusCode}`, async () => {
       const status = statusCode;
-      const url = `http://httpbin.org/status/${status}`;
+      const url = `${localTestServer.httpBaseUrl}/status/${status}`;
       const result = await basicProxyRequest(proxyHost, 'PUT', url, {}, {});
       const proxyRes = result.response;
       expect(proxyRes.statusCode).toBe(statusCode);
@@ -150,7 +186,7 @@ describe('status code and headers', () => {
 describe('response data formats', () => {
   ['brotli', 'deflate', 'gzip'].forEach(encoding => {
     it(`GET ${encoding}`, async () => {
-      const url = `http://httpbin.org/${encoding}`;
+      const url = `${localTestServer.httpBaseUrl}/${encoding}`;
       const result = await basicProxyRequest(proxyHost, 'GET', url);
       const headers = result.response.headers;
       const body = JSON.parse(result.body);

@@ -1,11 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const { basicProxyRequest, proxyServerWithRule, } = require('../util.js');
+const { startLocalTestServer } = require('../localTestServer');
 
 const RULE_PAYLOAD = 'this is something in rule';
 const RULE_REPLACE_HEADER_KEY = 'rule_replace_header_key';
 const RULE_REPLACE_HEADER_VALUE = 'rule_replace_header_value';
 
+let localTestServer;
 const rule = {
   *beforeSendRequest(requestDetail) {
     const reqUrl = requestDetail.url;
@@ -30,9 +32,9 @@ const rule = {
       };
     } else if (reqUrl.indexOf('/should_be_replaced') >= 0) {
       const requestOptions = requestDetail.requestOptions;
-      requestOptions.hostname = 'httpbin.org';
+      requestOptions.hostname = 'localhost';
       requestOptions.path = '/status/302';
-      requestOptions.port = '443';
+      requestOptions.port = String(localTestServer.httpsPort);
       return {
         protocol: 'https',
         requestOptions,
@@ -47,17 +49,23 @@ describe('Rule replaceRequestData', () => {
   let proxyHost;
 
   beforeAll(async () => {
+    localTestServer = await startLocalTestServer();
     proxyServer = await proxyServerWithRule(rule);
     proxyPort = proxyServer.proxyPort;
     proxyHost = `http://localhost:${proxyPort}`;
   });
 
-  afterAll(() => {
-    return proxyServer && proxyServer.close();
+  afterAll(async () => {
+    if (proxyServer) {
+      await proxyServer.close();
+    }
+    if (localTestServer) {
+      await localTestServer.close();
+    }
   });
 
   it('should replace the request data in proxy if the assertion is true', async () => {
-    const url = 'http://httpbin.org/post';
+    const url = `${localTestServer.httpBaseUrl}/post`;
     const payloadStream = fs.createReadStream(path.resolve(__dirname, '../fixtures/upload.txt'));
     const postHeaders = {
       anyproxy_header: 'header_value',
@@ -73,7 +81,7 @@ describe('Rule replaceRequestData', () => {
   });
 
   it('should respond content specified in rule', async () => {
-    const url = 'http://httpbin.org/status/302';
+    const url = `${localTestServer.httpBaseUrl}/status/302`;
     await basicProxyRequest(proxyHost, 'GET', url).then((result) => {
       const proxyRes = result.response;
       const body = result.body;
