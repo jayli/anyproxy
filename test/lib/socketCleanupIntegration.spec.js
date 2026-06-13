@@ -49,6 +49,7 @@ describe('CONNECT tunnel socket cleanup integration', () => {
     const url = `${localTestServer.httpsBaseUrl}/uuid`;
 
     for (let i = 0; i < 10; i++) {
+      // eslint-disable-next-line no-await-in-loop
       await basicProxyRequest(proxyHost, 'GET', url);
     }
 

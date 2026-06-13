@@ -35,6 +35,7 @@ function countTlsConnect(port, servername, count) {
     (async () => {
       for (let i = 0; i < count; i++) {
         try {
+          // eslint-disable-next-line no-await-in-loop
           await doConnect();
           completed++;
         } catch (e) {
@@ -48,7 +49,6 @@ function countTlsConnect(port, servername, count) {
 
 describe('SNI SecureContext cache integration', () => {
   let serverMgr;
-  let sniServer;
   let sniPort;
   let certCallCounts;
 
