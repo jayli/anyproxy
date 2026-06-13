@@ -65,3 +65,26 @@ describe('httpsServerMgr', () => {
     });
   });
 });
+
+describe('httpsServerMgr SNI context cache', () => {
+  it('refreshes LRU entries and evicts the oldest hostname', () => {
+    expect(httpsServerMgr._test).toBeDefined();
+
+    const cache = httpsServerMgr._test.createLRUCache(2);
+    cache.set('a.example', 'ctx-a');
+    cache.set('b.example', 'ctx-b');
+
+    expect(cache.get('a.example')).toBe('ctx-a');
+
+    cache.set('c.example', 'ctx-c');
+
+    expect(cache.get('b.example')).toBeUndefined();
+    expect(cache.get('a.example')).toBe('ctx-a');
+    expect(cache.get('c.example')).toBe('ctx-c');
+  });
+
+  it('normalizes SNI hostnames for stable cache keys', () => {
+    expect(httpsServerMgr._test.normalizeSNIName('WWW.Example.COM')).toBe('www.example.com');
+    expect(httpsServerMgr._test.normalizeSNIName(null)).toBe('');
+  });
+});
